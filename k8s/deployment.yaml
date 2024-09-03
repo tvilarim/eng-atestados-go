@@ -11,7 +11,7 @@ spec:
     metadata:
       labels:
         app: eng-atestados-go
-        version: v0.0.7 # ajustes no main.go
+        version: v1.0.0 # Upload and proccess the PDF file OK
     spec:
       containers:
       - name: eng-atestados-go-container
