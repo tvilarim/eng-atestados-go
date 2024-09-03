@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -14,26 +15,50 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
-	file, _, err := r.FormFile("pdf")
+
+	// Parse the multipart form
+	err := r.ParseMultipartForm(10 << 20) // 10 MB max size
+	if err != nil {
+		http.Error(w, "Failed to parse form", http.StatusInternalServerError)
+		return
+	}
+
+	file, handler, err := r.FormFile("pdf")
 	if err != nil {
 		http.Error(w, "Failed to upload file", http.StatusInternalServerError)
 		return
 	}
 	defer file.Close()
 
-	// Placeholder for OCR and data extraction logic
+	// Security measure: only allow specific file extensions
+	if ext := filepath.Ext(handler.Filename); ext != ".pdf" {
+		http.Error(w, "Only PDF files are allowed", http.StatusBadRequest)
+		return
+	}
 
+	// Placeholder for OCR and data extraction logic
 	// Placeholder for database logic
 
-	fmt.Fprintf(w, "File uploaded and processed successfully!")
+	fmt.Fprintf(w, "File %s uploaded and processed successfully!", handler.Filename)
 }
 
-func dataHandler(w http.ResponseWriter, r *http.Request) {
-	// Placeholder for fetching and displaying data from the database
-}
-
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to eng-atestados-go!")
+func uploadPageHandler(w http.ResponseWriter, r *http.Request) {
+	html := `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Upload PDF</title>
+        </head>
+        <body>
+            <h1>Upload PDF File</h1>
+            <form enctype="multipart/form-data" action="/upload" method="post">
+                <input type="file" name="pdf" accept="application/pdf" required>
+                <input type="submit" value="Upload PDF">
+            </form>
+        </body>
+        </html>`
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprint(w, html)
 }
 
 func main() {
@@ -43,9 +68,8 @@ func main() {
 	}
 	defer db.Close()
 
-	http.HandleFunc("/", rootHandler) // Add this line to handle the root path
+	http.HandleFunc("/", uploadPageHandler)
 	http.HandleFunc("/upload", uploadHandler)
-	http.HandleFunc("/data", dataHandler)
 
 	log.Println("Server started on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
