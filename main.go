@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"path/filepath"
 
@@ -30,9 +31,9 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Security measure: only allow specific file extensions
-	if ext := filepath.Ext(handler.Filename); ext != ".pdf" {
-		http.Error(w, "Only PDF files are allowed", http.StatusBadRequest)
+	// Security measure: only allow PDF files by MIME type
+	if err := validatePDF(file, handler); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -40,6 +41,28 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	// Placeholder for database logic
 
 	fmt.Fprintf(w, "File %s uploaded and processed successfully!", handler.Filename)
+}
+
+func validatePDF(file multipart.File, handler *multipart.FileHeader) error {
+	// Check file extension
+	if ext := filepath.Ext(handler.Filename); ext != ".pdf" {
+		return fmt.Errorf("Only PDF files are allowed")
+	}
+
+	// Check MIME type
+	buf := make([]byte, 512)
+	_, err := file.Read(buf)
+	if err != nil {
+		return fmt.Errorf("Unable to read file")
+	}
+	file.Seek(0, 0) // Reset the file pointer to the beginning
+
+	mimeType := http.DetectContentType(buf)
+	if mimeType != "application/pdf" {
+		return fmt.Errorf("Only PDF files are allowed")
+	}
+
+	return nil
 }
 
 func uploadPageHandler(w http.ResponseWriter, r *http.Request) {

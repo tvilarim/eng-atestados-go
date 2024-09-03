@@ -11,7 +11,7 @@ spec:
     metadata:
       labels:
         app: eng-atestados-go
-        version: v0.0.5 # ajustes na imagem
+        version: v0.0.6 # ajustes no main.go
     spec:
       containers:
       - name: eng-atestados-go-container
