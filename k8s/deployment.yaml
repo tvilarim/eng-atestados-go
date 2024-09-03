@@ -11,7 +11,7 @@ spec:
     metadata:
       labels:
         app: eng-atestados-go
-        version: v0.0.2 # deploy.sh
+        version: v0.0.3 # ajustes no deploy.sh
     spec:
       containers:
       - name: eng-atestados-go-container
