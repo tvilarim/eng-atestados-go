@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -31,7 +32,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Security measure: only allow PDF files by MIME type
+	// Validate the uploaded file
 	if err := validatePDF(file, handler); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -44,8 +45,9 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func validatePDF(file multipart.File, handler *multipart.FileHeader) error {
-	// Check file extension
-	if ext := filepath.Ext(handler.Filename); ext != ".pdf" {
+	// Normalize the file extension to lowercase
+	ext := strings.ToLower(filepath.Ext(handler.Filename))
+	if ext != ".pdf" {
 		return fmt.Errorf("Only PDF files are allowed")
 	}
 
@@ -62,7 +64,17 @@ func validatePDF(file multipart.File, handler *multipart.FileHeader) error {
 		return fmt.Errorf("Only PDF files are allowed")
 	}
 
+	// Check for the PDF header
+	if !isPDFHeader(buf) {
+		return fmt.Errorf("The file does not appear to be a valid PDF")
+	}
+
 	return nil
+}
+
+func isPDFHeader(buf []byte) bool {
+	// Check if the file starts with '%PDF-' which is the standard PDF header
+	return len(buf) >= 4 && string(buf[:4]) == "%PDF"
 }
 
 func uploadPageHandler(w http.ResponseWriter, r *http.Request) {
