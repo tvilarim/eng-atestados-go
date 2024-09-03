@@ -3,16 +3,17 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
-
-var db *sql.DB
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -20,7 +21,6 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse the multipart form
 	err := r.ParseMultipartForm(10 << 20) // 10 MB max size
 	if err != nil {
 		http.Error(w, "Failed to parse form", http.StatusInternalServerError)
@@ -34,48 +34,130 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Validate the uploaded file
 	if err := validatePDF(file, handler); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Placeholder for OCR and data extraction logic
-	// Here we assume that the content extraction is a simple string for demonstration
-	extractedContent := "This is a placeholder for the extracted content from the PDF."
-
-	// Store the extracted content in the database
-	_, err = db.Exec("INSERT INTO pdf_contents (filename, content) VALUES (?, ?)", handler.Filename, extractedContent)
+	// Save the uploaded PDF file temporarily
+	tempFile, err := os.CreateTemp("", "*.pdf")
 	if err != nil {
-		http.Error(w, "Failed to store content in the database", http.StatusInternalServerError)
+		http.Error(w, "Unable to save the file", http.StatusInternalServerError)
+		return
+	}
+	defer os.Remove(tempFile.Name()) // Clean up
+
+	_, err = io.Copy(tempFile, file)
+	if err != nil {
+		http.Error(w, "Failed to save the file", http.StatusInternalServerError)
 		return
 	}
 
-	// Redirect to the content display page
-	http.Redirect(w, r, "/show", http.StatusSeeOther)
+	// Run Tesseract to extract text from the PDF
+	extractedText, err := extractTextFromPDF(tempFile.Name())
+	if err != nil {
+		http.Error(w, "Failed to extract text from the PDF", http.StatusInternalServerError)
+		return
+	}
+
+	// Save extracted text to SQLite
+	err = saveExtractedText(handler.Filename, extractedText)
+	if err != nil {
+		http.Error(w, "Failed to save extracted text to the database", http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprintf(w, "File %s uploaded and processed successfully!", handler.Filename)
+}
+
+func extractTextFromPDF(pdfPath string) (string, error) {
+	outputTextFile := pdfPath + ".txt"
+	cmd := exec.Command("tesseract", pdfPath, outputTextFile, "-l", "por", "pdf")
+	err := cmd.Run()
+	if err != nil {
+		return "", fmt.Errorf("tesseract OCR failed: %v", err)
+	}
+
+	// Read the extracted text
+	text, err := os.ReadFile(outputTextFile + ".txt")
+	if err != nil {
+		return "", fmt.Errorf("unable to read the extracted text: %v", err)
+	}
+
+	return string(text), nil
+}
+
+func saveExtractedText(filename, text string) error {
+	db, err := sql.Open("sqlite3", "./data.db")
+	if err != nil {
+		return fmt.Errorf("failed to connect to the database: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename TEXT,
+        content TEXT
+    )`)
+	if err != nil {
+		return fmt.Errorf("failed to create table: %v", err)
+	}
+
+	_, err = db.Exec("INSERT INTO documents (filename, content) VALUES (?, ?)", filename, text)
+	if err != nil {
+		return fmt.Errorf("failed to insert data into the database: %v", err)
+	}
+
+	return nil
+}
+
+func showContentHandler(w http.ResponseWriter, r *http.Request) {
+	db, err := sql.Open("sqlite3", "./data.db")
+	if err != nil {
+		http.Error(w, "Failed to connect to the database", http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT filename, content FROM documents")
+	if err != nil {
+		http.Error(w, "Failed to query the database", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var htmlContent strings.Builder
+	htmlContent.WriteString("<html><body><h1>Extracted PDF Contents</h1>")
+	for rows.Next() {
+		var filename, content string
+		rows.Scan(&filename, &content)
+		htmlContent.WriteString("<h2>" + filename + "</h2>")
+		htmlContent.WriteString("<pre>" + content + "</pre>")
+	}
+	htmlContent.WriteString("</body></html>")
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(htmlContent.String()))
 }
 
 func validatePDF(file multipart.File, handler *multipart.FileHeader) error {
-	// Normalize the file extension to lowercase
 	ext := strings.ToLower(filepath.Ext(handler.Filename))
 	if ext != ".pdf" {
 		return fmt.Errorf("Only PDF files are allowed")
 	}
 
-	// Check MIME type
 	buf := make([]byte, 512)
 	_, err := file.Read(buf)
 	if err != nil {
 		return fmt.Errorf("Unable to read file")
 	}
-	file.Seek(0, 0) // Reset the file pointer to the beginning
+	file.Seek(0, 0)
 
 	mimeType := http.DetectContentType(buf)
 	if mimeType != "application/pdf" {
 		return fmt.Errorf("Only PDF files are allowed")
 	}
 
-	// Check for the PDF header
 	if !isPDFHeader(buf) {
 		return fmt.Errorf("The file does not appear to be a valid PDF")
 	}
@@ -84,8 +166,16 @@ func validatePDF(file multipart.File, handler *multipart.FileHeader) error {
 }
 
 func isPDFHeader(buf []byte) bool {
-	// Check if the file starts with '%PDF-' which is the standard PDF header
 	return len(buf) >= 4 && string(buf[:4]) == "%PDF"
+}
+
+func main() {
+	http.HandleFunc("/", uploadPageHandler)
+	http.HandleFunc("/upload", uploadHandler)
+	http.HandleFunc("/content", showContentHandler)
+
+	log.Println("Server started on :8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 func uploadPageHandler(w http.ResponseWriter, r *http.Request) {
@@ -101,62 +191,9 @@ func uploadPageHandler(w http.ResponseWriter, r *http.Request) {
                 <input type="file" name="pdf" accept="application/pdf" required>
                 <input type="submit" value="Upload PDF">
             </form>
+            <h2><a href="/content">View Extracted Content</a></h2>
         </body>
         </html>`
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprint(w, html)
-}
-
-func showContentHandler(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT filename, content FROM pdf_contents ORDER BY id DESC LIMIT 1")
-	if err != nil {
-		http.Error(w, "Failed to retrieve content from the database", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var filename, content string
-	if rows.Next() {
-		err := rows.Scan(&filename, &content)
-		if err != nil {
-			http.Error(w, "Failed to scan database row", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	html := fmt.Sprintf(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>PDF Content</title>
-        </head>
-        <body>
-            <h1>Content of %s</h1>
-            <p>%s</p>
-        </body>
-        </html>`, filename, content)
-	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprint(w, html)
-}
-
-func main() {
-	var err error
-	db, err = sql.Open("sqlite3", "./data.db")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	// Create the table for storing PDF contents
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS pdf_contents (id INTEGER PRIMARY KEY, filename TEXT, content TEXT)")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	http.HandleFunc("/", uploadPageHandler)
-	http.HandleFunc("/upload", uploadHandler)
-	http.HandleFunc("/show", showContentHandler)
-
-	log.Println("Server started on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
 }
