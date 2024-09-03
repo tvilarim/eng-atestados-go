@@ -11,11 +11,11 @@ spec:
     metadata:
       labels:
         app: eng-atestados-go
-        version: v0.0.3 # ajustes no deploy.sh
+        version: v0.0.4 # ajustes na imagem
     spec:
       containers:
       - name: eng-atestados-go-container
-        image: eng-atestados-go
+        image: tvilarim/eng-atestados-go
         ports:
         - containerPort: 8080
         resources:
