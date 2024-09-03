@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eng-atestados-go
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: eng-atestados-go
+  template:
+    metadata:
+      labels:
+        app: eng-atestados-go
+    spec:
+      containers:
+      - name: eng-atestados-go-container
+        image: eng-atestados-go
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+
