@@ -2,7 +2,7 @@
 FROM golang:1.18-alpine AS builder
 
 # Instalar dependências do sistema (compilador C, SQLite3, Tesseract, Python)
-RUN apk add --no-cache gcc musl-dev sqlite-dev tesseract-ocr python3 py3-pip python3-virtualenv
+RUN apk add --no-cache gcc musl-dev sqlite-dev tesseract-ocr python3 py3-pip
 
 # Definir o diretório de trabalho dentro do container
 WORKDIR /app
@@ -10,12 +10,12 @@ WORKDIR /app
 # Criar um novo módulo Go dentro do container
 RUN go mod init eng-atestados-go
 
-# Criar o ambiente virtual Python e ativá-lo
+# Criar o ambiente virtual Python usando o pip
 RUN python3 -m venv /app/venv
-ENV PATH="/app/venv/bin:$PATH"
 
-# Instalar o pdfplumber no ambiente virtual
-RUN pip install pdfplumber
+# Ativar o ambiente virtual e instalar o pdfplumber
+ENV PATH="/app/venv/bin:$PATH"
+RUN pip install --upgrade pip && pip install pdfplumber
 
 # Copiar o código-fonte do projeto
 COPY . .
