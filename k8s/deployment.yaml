@@ -11,7 +11,7 @@ spec:
     metadata:
       labels:
         app: eng-atestados-go
-        version: v1.0.2 # Make more robust
+        version: v1.0.3 # using python and go
     spec:
       containers:
       - name: eng-atestados-go-container
