@@ -7,12 +7,11 @@ RUN apk add --no-cache gcc musl-dev libc-dev sqlite-dev tesseract-ocr linux-head
 # Definir o diretório de trabalho dentro do container
 WORKDIR /app
 
-# Copiar o arquivo go.mod e go.sum para o container
+# Copiar o arquivo go.mod para o container
 COPY go.mod ./
-COPY go.sum ./
 
-# Baixar e instalar as dependências Go
-RUN go mod download
+# Gerar o go.sum automaticamente no container e baixar as dependências
+RUN go mod tidy
 
 # Copiar o código-fonte do projeto para o container
 COPY . .
