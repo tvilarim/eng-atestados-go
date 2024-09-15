@@ -18,6 +18,9 @@ RUN go get -d github.com/mattn/go-sqlite3
 RUN go get -d github.com/unidoc/unipdf/v3/extractor
 RUN go get -d github.com/unidoc/unipdf/v3/model
 
+# Copiar o arquivo go.sum atualizado para o container
+COPY go.sum ./
+
 # Copiar o código-fonte do projeto para o container
 COPY . .
 
