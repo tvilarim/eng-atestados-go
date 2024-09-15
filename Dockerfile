@@ -2,7 +2,7 @@
 FROM golang:1.18-alpine AS builder
 
 # Instalar dependências do sistema (compilador C, SQLite3, Tesseract, libc-dev, e linux-headers)
-RUN apk add --no-cache gcc musl-dev sqlite-dev tesseract-ocr libc-dev linux-headers
+RUN apk add --no-cache gcc musl-dev libc-dev sqlite-dev tesseract-ocr linux-headers
 
 # Definir o diretório de trabalho dentro do container
 WORKDIR /app
@@ -12,6 +12,11 @@ COPY go.mod ./
 
 # Gerar o go.sum automaticamente no container e baixar dependências
 RUN go mod tidy
+
+# Garantir que as dependências de sqlite3 e unipdf estejam incluídas corretamente
+RUN go get github.com/mattn/go-sqlite3
+RUN go get github.com/unidoc/unipdf/v3/extractor
+RUN go get github.com/unidoc/unipdf/v3/model
 
 # Copiar o código-fonte do projeto para o container
 COPY . .
