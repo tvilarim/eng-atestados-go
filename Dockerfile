@@ -18,6 +18,9 @@ RUN go get -d github.com/mattn/go-sqlite3
 RUN go get -d github.com/unidoc/unipdf/v3/extractor
 RUN go get -d github.com/unidoc/unipdf/v3/model
 
+# Baixar todas as dependências
+RUN go mod download
+
 # Copiar o código-fonte do projeto para o container
 COPY . .
 
