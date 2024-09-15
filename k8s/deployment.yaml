@@ -11,7 +11,7 @@ spec:
     metadata:
       labels:
         app: eng-atestados-go
-        version: v2.0.2 # Os arquivos do go serao gerados no container sem precisar copiar do localhost
+        version: v2.0.3 # Os arquivos do go serao gerados no container sem precisar copiar do localhost
     spec:
       containers:
       - name: eng-atestados-go
