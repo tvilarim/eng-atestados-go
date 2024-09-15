@@ -1,30 +1,23 @@
 # Etapa 1: Usar a imagem base do Golang mais recente com suporte a CGO
 FROM golang:1.18-alpine AS builder
 
-# Instalar dependências do sistema (compilador C, SQLite3, Tesseract)
-RUN apk add --no-cache gcc musl-dev sqlite-dev tesseract-ocr
+# Instalar dependências do sistema (compilador C, SQLite3, Tesseract, libc-dev, e linux-headers)
+RUN apk add --no-cache gcc musl-dev sqlite-dev tesseract-ocr libc-dev linux-headers
 
 # Definir o diretório de trabalho dentro do container
 WORKDIR /app
 
-# Copiar o arquivo go.mod para o container
+# Copiar o arquivo go.mod e go.sum para o container
 COPY go.mod ./
+COPY go.sum ./
 
-# Inicializar o módulo e gerar o arquivo go.sum
-RUN go mod tidy
-
-# Adicionar explicitamente as dependências no go.sum
-RUN go get -d github.com/mattn/go-sqlite3
-RUN go get -d github.com/unidoc/unipdf/v3/extractor
-RUN go get -d github.com/unidoc/unipdf/v3/model
-
-# Baixar todas as dependências
+# Baixar e instalar as dependências Go
 RUN go mod download
 
 # Copiar o código-fonte do projeto para o container
 COPY . .
 
-# Compilar o código Go com suporte a CGO
+# Compilar o código Go com suporte a CGO (para usar SQLite3)
 RUN CGO_ENABLED=1 GOOS=linux go build -o main .
 
 # Etapa 2: Criar a imagem final com o binário compilado e as dependências
