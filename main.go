@@ -53,7 +53,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Chamar o script Python para extrair o texto
+	// Extrair texto usando Tesseract após converter o PDF em imagens
 	extractedText, err := extractTextFromPDF(tempFile.Name())
 	if err != nil {
 		http.Error(w, "Failed to extract text from the PDF", http.StatusInternalServerError)
@@ -71,10 +71,38 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func extractTextFromPDF(pdfPath string) (string, error) {
-	cmd := exec.Command("python3", "extract_text.py", pdfPath)
+	// Converter PDF em imagens (uma imagem por página)
+	outputDir := filepath.Dir(pdfPath)
+	cmd := exec.Command("pdftoppm", "-png", pdfPath, outputDir+"/page")
+	err := cmd.Run()
+	if err != nil {
+		return "", fmt.Errorf("failed to convert PDF to images: %v", err)
+	}
+
+	var extractedText strings.Builder
+
+	// Fazer OCR em cada página convertida para imagem
+	files, err := filepath.Glob(outputDir + "/page*.png")
+	if err != nil {
+		return "", fmt.Errorf("failed to find images: %v", err)
+	}
+
+	for _, imageFile := range files {
+		text, err := ocrImage(imageFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to extract text from image %s: %v", imageFile, err)
+		}
+		extractedText.WriteString(text)
+	}
+
+	return extractedText.String(), nil
+}
+
+func ocrImage(imagePath string) (string, error) {
+	cmd := exec.Command("tesseract", imagePath, "stdout", "-l", "por") // Usando OCR com idioma português
 	output, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("text extraction failed: %v", err)
+		return "", fmt.Errorf("tesseract OCR failed: %v", err)
 	}
 	return string(output), nil
 }
@@ -143,7 +171,7 @@ func validatePDF(file multipart.File, handler *multipart.FileHeader) error {
 	if err != nil {
 		return fmt.Errorf("Unable to read file")
 	}
-	file.Seek(0, 0)
+	file.Seek(0, 0) // Reset file pointer
 
 	mimeType := http.DetectContentType(buf)
 	if mimeType != "application/pdf" {
