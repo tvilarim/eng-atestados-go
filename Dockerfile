@@ -9,7 +9,13 @@ WORKDIR /app
 
 # Copiar o arquivo go.mod e gerar o go.sum diretamente no container
 COPY go.mod ./
+COPY go.sum ./
+
+# Baixar dependências e instalar módulos Go
 RUN go mod tidy
+RUN go get github.com/mattn/go-sqlite3
+RUN go get github.com/unidoc/unipdf/v3/extractor
+RUN go get github.com/unidoc/unipdf/v3/model
 
 # Copiar o código-fonte do projeto para o container
 COPY . .
