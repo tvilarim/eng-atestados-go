@@ -11,7 +11,7 @@ spec:
     metadata:
       labels:
         app: eng-atestados-go
-        version: v2.0.5 # Ajuste no dockerfile e para não precisar do python
+        version: v2.0.6 # Ajuste no go.sum para o dockerfile
     spec:
       containers:
       - name: eng-atestados-go
