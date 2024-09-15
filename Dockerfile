@@ -7,11 +7,16 @@ RUN apk add --no-cache gcc musl-dev sqlite-dev tesseract-ocr
 # Definir o diretório de trabalho dentro do container
 WORKDIR /app
 
-# Copiar o arquivo go.mod para o container
+# Copiar o arquivo go.mod e gerar o go.sum diretamente no container
 COPY go.mod ./
 
-# Gerar o arquivo go.sum dentro do container e baixar as dependências
+# Baixar e instalar as dependências Go
 RUN go mod tidy
+
+# Garantir que as dependências estejam registradas no go.sum
+RUN go get github.com/mattn/go-sqlite3
+RUN go get github.com/unidoc/unipdf/v3/extractor
+RUN go get github.com/unidoc/unipdf/v3/model
 
 # Copiar o código-fonte do projeto para o container
 COPY . .
