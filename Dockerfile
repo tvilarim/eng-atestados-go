@@ -7,15 +7,17 @@ RUN apk add --no-cache gcc musl-dev sqlite-dev tesseract-ocr python3 py3-pip
 # Definir o diretório de trabalho dentro do container
 WORKDIR /app
 
-# Copiar os arquivos go.mod e go.sum e instalar dependências
-COPY go.mod go.sum ./
-RUN go mod download
-
-# Copiar o código-fonte do projeto
-COPY . .
+# Criar um novo módulo Go dentro do container
+RUN go mod init eng-atestados-go
 
 # Instalar o pdfplumber usando pip
 RUN pip3 install pdfplumber
+
+# Copiar o código-fonte do projeto para dentro do container
+COPY . .
+
+# Gerar o arquivo go.sum automaticamente ao baixar as dependências
+RUN go mod tidy
 
 # Compilar o código Go com suporte a CGO
 RUN CGO_ENABLED=1 GOOS=linux go build -o main .
