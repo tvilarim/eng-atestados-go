@@ -1,5 +1,8 @@
 # Etapa 1: Usar a imagem base do Golang mais recente com suporte a CGO
-FROM golang:latest as builder
+FROM golang:1.18-alpine AS builder
+
+# Instalar dependências do sistema (compilador C, SQLite3, Tesseract, Python)
+RUN apk add --no-cache gcc musl-dev sqlite-dev tesseract-ocr python3 py3-pip
 
 # Definir o diretório de trabalho dentro do container
 WORKDIR /app
@@ -11,14 +14,6 @@ RUN go mod download
 # Copiar o código-fonte do projeto
 COPY . .
 
-# Instalar dependências do sistema (compilador C, SQLite3)
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libsqlite3-dev \
-    tesseract-ocr \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
-
 # Instalar o pdfplumber usando pip
 RUN pip3 install pdfplumber
 
@@ -26,14 +21,10 @@ RUN pip3 install pdfplumber
 RUN CGO_ENABLED=1 GOOS=linux go build -o main .
 
 # Etapa 2: Criar a imagem final com o binário compilado e as dependências
-FROM debian:buster
+FROM alpine:latest
 
 # Instalar dependências necessárias para rodar o binário e o script Python
-RUN apt-get update && apt-get install -y \
-    libsqlite3-dev \
-    tesseract-ocr \
-    python3 \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache sqlite-libs tesseract-ocr python3 py3-pip
 
 # Instalar o pdfplumber usando pip
 RUN pip3 install pdfplumber

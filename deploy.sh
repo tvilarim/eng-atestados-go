@@ -1,6 +1,6 @@
 #!/bin/bash
 
-docker build -t tvilarim/eng-atestados-go . &&
+docker build -t tvilarim/eng-atestados-go:latest . &&
 
 docker push tvilarim/eng-atestados-go:latest &&
 

@@ -11,11 +11,11 @@ spec:
     metadata:
       labels:
         app: eng-atestados-go
-        version: v2.0.0 # Project refactoring
+        version: v2.0.1 # Novo refactor de versão
     spec:
       containers:
       - name: eng-atestados-go
-        image: tvilarim/eng-atestados-go:latest # Substitua pela sua imagem no Docker Hub ou outro registro
+        image: tvilarim/eng-atestados-go:latest  # Substitua pela sua imagem publicada
         ports:
         - containerPort: 8080
         resources:
