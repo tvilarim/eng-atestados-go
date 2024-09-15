@@ -11,7 +11,7 @@ spec:
     metadata:
       labels:
         app: eng-atestados-go
-        version: v2.0.7 # Ajuste no dockerfile
+        version: v2.0.8 # A briga para rodar tudo no container continua
     spec:
       containers:
       - name: eng-atestados-go
